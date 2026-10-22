@@ -1,0 +1,39 @@
+# Terraform / Terragrunt
+.terraform/
+.terragrunt-cache/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*.auto.tfvars
+*.auto.tfvars.json
+# Keep .terraform.lock.hcl files: they pin provider checksums
+
+# Account-specific settings (account ID, local AWS profile)
+infra/live/account.hcl
+
+# Secrets and credentials
+.env
+.env.*
+*.pem
+*.key
+kubeconfig*
+.kube/
+
+# Trivy / scan output
+*.sarif
+trivy-results*
+
+# Local notes for Claude Code (personal, not for the public repo)
+CLAUDE.md
+.claude/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp

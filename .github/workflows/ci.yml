@@ -1,0 +1,100 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/ci.yml"]
+  pull_request:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/ci.yml"]
+  workflow_dispatch:
+
+# Least privilege by default; the job below adds only what it needs.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: eu-west-1
+  ECR_REPOSITORY: eks-gitops-platform/app
+  IMAGE: app:${{ github.sha }}
+  TRIVY_VERSION: 0.76.0
+  # Mirrors avoid ghcr.io rate limits when downloading the vulnerability DB.
+  TRIVY_DB_REPOSITORY: mirror.gcr.io/aquasec/trivy-db,public.ecr.aws/aquasecurity/trivy-db
+
+jobs:
+  build-scan-push:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write        # OIDC token for AWS
+      security-events: write # upload SARIF to the Security tab
+
+    steps:
+      # Actions are pinned to full commit SHAs: a tag can be moved, a SHA cannot.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: app
+          load: true
+          push: false
+          tags: ${{ env.IMAGE }}
+          build-args: VERSION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Binary + checksum instead of trivy-action (compromised in March 2026).
+      - name: Install Trivy
+        run: |
+          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+          curl -fsSLO "${base}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSLO "${base}/trivy_${TRIVY_VERSION}_checksums.txt"
+          grep " trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz$" "trivy_${TRIVY_VERSION}_checksums.txt" | sha256sum -c -
+          tar -xzf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" trivy
+          sudo install -m 755 trivy /usr/local/bin/trivy
+          trivy --version
+
+      - name: Trivy report (all findings, SARIF)
+        run: trivy image --format sarif --output trivy.sarif "$IMAGE"
+
+      - name: Upload report to GitHub Security tab
+        if: always() && hashFiles('trivy.sarif') != ''
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy
+
+      # The gate: fail on HIGH/CRITICAL that have a fixed version available.
+      - name: Trivy gate (HIGH/CRITICAL)
+        run: trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$IMAGE"
+
+      # Only main gets AWS credentials (the IAM trust policy enforces this too).
+      - name: Configure AWS credentials (OIDC)
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Log in to ECR
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - name: Push image (tag = commit SHA)
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          docker tag "$IMAGE" "${REGISTRY}/${ECR_REPOSITORY}:${GITHUB_SHA}"
+          docker push "${REGISTRY}/${ECR_REPOSITORY}:${GITHUB_SHA}"

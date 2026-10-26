@@ -26,8 +26,10 @@ inputs = {
 
   # Only workflow runs on the main branch of this repo can assume the role.
   # Pull requests build and scan, but never get AWS credentials.
+  # GitHub's sub claim uses immutable IDs (owner@id/repo@id): a repo recreated
+  # under the same name gets a new ID and cannot assume this role.
   enable_github_oidc = true
-  oidc_subjects      = ["eldadpuzach/eks-gitops-platform:ref:refs/heads/main"]
+  oidc_subjects      = ["eldadpuzach@37382556/eks-gitops-platform@1429302892:ref:refs/heads/main"]
 
   # Push to this one ECR repo, nothing else.
   create_inline_policy = true

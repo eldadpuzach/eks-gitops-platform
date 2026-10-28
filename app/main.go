@@ -20,7 +20,7 @@ func main() {
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		host, _ := os.Hostname()
-		fmt.Fprintf(w, "Hello from eks-gitops-platform! version=%s pod=%s\n", version, host)
+		fmt.Fprintf(w, "Hello from GitOps v2! version=%s pod=%s\n", version, host)
 	})
 
 	srv := &http.Server{

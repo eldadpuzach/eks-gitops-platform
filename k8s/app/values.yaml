@@ -4,7 +4,7 @@ image:
   # Set by the ArgoCD Application (keeps the AWS account ID out of git).
   repository: ""
   # Bumped by CI on every push to main (commit SHA).
-  tag: "f9283985532ed0d17c32d089839c88bc002c3076"
+  tag: "5da8a482b2fedd790c9fdb2f01e35d9df6fa0807"
 
 service:
   port: 80

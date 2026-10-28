@@ -1,0 +1,15 @@
+# ArgoCD Helm values (chart argo/argo-cd 10.10.5, ArgoCD v3.5.5).
+# Small dev setup: one replica of each part, UI through kubectl port-forward.
+
+# No SSO in dev: log in as "admin" with the generated initial password.
+dex:
+  enabled: false
+
+# No Slack/email notifications in dev.
+notifications:
+  enabled: false
+
+configs:
+  cm:
+    # Check git every 60s instead of the default 120s, so demos are faster.
+    timeout.reconciliation: 60s

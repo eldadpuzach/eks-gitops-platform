@@ -37,3 +37,6 @@ CLAUDE.md
 .idea/
 .DS_Store
 *.swp
+
+# Local ArgoCD Applications (hold the AWS account ID)
+k8s/argocd/*.local.yaml

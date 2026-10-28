@@ -1,0 +1,5 @@
+apiVersion: v2
+name: app
+description: Demo web app for eks-gitops-platform
+type: application
+version: 0.1.0

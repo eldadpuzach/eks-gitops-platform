@@ -1,0 +1,30 @@
+# Copy to app-dev.local.yaml (gitignored), set your ECR registry, then:
+#   kubectl apply -f k8s/argocd/app-dev.local.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo
+  namespace: argocd
+  # Delete the app's resources when the Application is deleted.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/eldadpuzach/eks-gitops-platform.git
+    targetRevision: main
+    path: k8s/app
+    helm:
+      # Only the registry comes from here; image.tag comes from values.yaml in git.
+      parameters:
+        - name: image.repository
+          value: 123456789012.dkr.ecr.eu-west-1.amazonaws.com/eks-gitops-platform/app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo
+  syncPolicy:
+    automated:
+      prune: true    # delete resources removed from git
+      selfHeal: true # undo manual changes in the cluster
+    syncOptions:
+      - CreateNamespace=true
